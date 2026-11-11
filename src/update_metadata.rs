@@ -30,9 +30,10 @@ const SIGNATURE_ALGORITHM: &str = "ed25519";
 const TRUSTED_UPDATE_KEYS: &[TrustedUpdateKey] = &[TrustedUpdateKey {
     key_id: "2026-ed25519-main",
     algorithm: SIGNATURE_ALGORITHM,
+    // Grupo Endor: chave pública de assinatura das atualizações (segredo no GitHub do fork)
     public_key: [
-        52, 214, 32, 65, 191, 134, 137, 75, 157, 74, 67, 221, 150, 161, 118, 215, 218, 35, 236,
-        156, 127, 120, 133, 156, 197, 141, 37, 22, 47, 106, 181, 177,
+        226, 244, 9, 83, 73, 97, 200, 207, 101, 147, 241, 69, 190, 68, 37, 132, 250, 192, 162, 44,
+        162, 214, 87, 140, 22, 195, 216, 241, 17, 63, 34, 194,
     ],
 }];
 

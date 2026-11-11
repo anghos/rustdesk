@@ -3,15 +3,14 @@ name: Grupo Endor - Windows x64
 # Build reduzido do cliente Grupo Endor: apenas Windows x64 (Flutter),
 # sem assinatura de código, publicando o instalador numa release do fork.
 
+# Versões: 1.5.1xx = builds Grupo Endor sobre o RustDesk 1.5.1 (1.5.2 -> 1.5.2xx...).
+# Para publicar uma atualização automática, aumente a versão em Cargo.toml,
+# libs/portable/Cargo.toml, Cargo.lock, flutter/pubspec.yaml e VERSION abaixo.
+
 on:
   push:
     branches: [grupo-endor]
   workflow_dispatch:
-    inputs:
-      release-tag:
-        description: "Tag da release onde o instalador será publicado"
-        type: string
-        default: "grupo-endor-1.5.1"
 
 permissions:
   contents: write
@@ -23,8 +22,11 @@ env:
   FLUTTER_VERSION: "3.24.5"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
-  VERSION: "1.5.1"
-  RELEASE_TAG: "${{ inputs.release-tag || 'grupo-endor-1.5.1' }}"
+  VERSION: "1.5.101"
+  # A tag precisa ser a própria versão: o atualizador lê a versão a partir dela.
+  RELEASE_TAG: "1.5.101"
+  # Chave pública correspondente ao segredo RUSTDESK_UPDATE_ED25519_SEED
+  RUSTDESK_UPDATE_ED25519_PUBLIC_KEY: "4vQJU0lhyM9lk/FFvkQlhPrAoiyi1leMFsPY8RE/IsI="
 
 jobs:
   generate-bridge:
@@ -177,21 +179,53 @@ jobs:
           mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/GrupoEndor-${{ env.VERSION }}-x86_64.exe
           sha256sum ./SignOutput/*.exe
 
+      - name: Sign update metadata
+        shell: bash
+        env:
+          RUSTDESK_UPDATE_ED25519_SEED: ${{ secrets.RUSTDESK_UPDATE_ED25519_SEED }}
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet cryptography
+          cd res/update
+          python3 generate_update_metadata.py check-key --rust-source ../../src/update_metadata.rs
+          EXE="../../SignOutput/GrupoEndor-${VERSION}-x86_64.exe"
+          BASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download"
+          python3 generate_update_metadata.py sign \
+            --artifact windows x86_64 exe "$EXE" \
+            --version "$VERSION" \
+            --release-id "$RELEASE_TAG" \
+            --package-id rustdesk \
+            --release-base-url "$BASE_URL" \
+            --published-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --metadata-out ../../SignOutput/rustdesk-update.json \
+            --signature-out ../../SignOutput/rustdesk-update.json.sig
+          python3 generate_update_metadata.py verify \
+            --metadata ../../SignOutput/rustdesk-update.json \
+            --signature ../../SignOutput/rustdesk-update.json.sig \
+            --artifact "$EXE" \
+            --version "$VERSION" \
+            --release-id "$RELEASE_TAG" \
+            --package-id rustdesk \
+            --release-base-url "$BASE_URL"
+          cat ../../SignOutput/rustdesk-update.json
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: GrupoEndor-windows-x86_64
-          path: ./SignOutput/GrupoEndor-*.exe
+          path: ./SignOutput/
           if-no-files-found: error
 
       - name: Publish Release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
-          prerelease: true
+          prerelease: false
           tag_name: ${{ env.RELEASE_TAG }}
           name: Grupo Endor ${{ env.VERSION }}
           body: |
-            Cliente de acesso remoto Grupo Endor para Windows x64, baseado no RustDesk ${{ env.VERSION }} (AGPL-3.0).
+            Cliente de acesso remoto Grupo Endor para Windows x64, baseado no RustDesk (AGPL-3.0).
             Codigo-fonte: https://github.com/${{ github.repository }}
           files: |
             ./SignOutput/GrupoEndor-*.exe
+            ./SignOutput/rustdesk-update.json
+            ./SignOutput/rustdesk-update.json.sig

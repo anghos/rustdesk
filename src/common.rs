@@ -1053,6 +1053,10 @@ pub fn check_software_update() {
     }
 }
 
+// Grupo Endor: atualizações vêm dos releases do fork, não do rustdesk/rustdesk.
+pub(crate) const GRUPO_ENDOR_UPDATE_OWNER: &str = "anghos";
+pub(crate) const GRUPO_ENDOR_UPDATE_REPO: &str = "rustdesk";
+
 pub(crate) fn release_id_from_update_url(update_url: &str) -> ResultType<String> {
     let url = url::Url::parse(update_url)?;
     if url.scheme() != "https" || url.host_str() != Some("github.com") {
@@ -1083,8 +1087,10 @@ pub(crate) fn release_id_from_update_url(update_url: &str) -> ResultType<String>
     };
     let segments = segments.collect::<Vec<_>>();
     let release_id = match segments.as_slice() {
-        ["rustdesk", "rustdesk", "releases", "tag", release_id] => *release_id,
-        ["rustdesk", "rustdesk", "releases", "tag", release_id, ""] => *release_id,
+        [GRUPO_ENDOR_UPDATE_OWNER, GRUPO_ENDOR_UPDATE_REPO, "releases", "tag", release_id] => *release_id,
+        [GRUPO_ENDOR_UPDATE_OWNER, GRUPO_ENDOR_UPDATE_REPO, "releases", "tag", release_id, ""] => {
+            *release_id
+        }
         _ => bail!(
             "Update URL is not a RustDesk release tag URL: {}",
             update_url
@@ -1159,10 +1165,65 @@ fn process_software_update_check_response(bytes: Bytes) -> ResultType<()> {
     Ok(())
 }
 
-// No need to check `danger_accept_invalid_cert` for now.
-// Because the url is always `https://api.rustdesk.com/version/latest`.
+// Grupo Endor: "releases/latest" redireciona para ".../releases/tag/<versão>" do fork.
 #[tokio::main(flavor = "current_thread")]
 pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
+    let result = grupo_endor_latest_release_url()
+        .await
+        .and_then(|url| process_latest_release_url(url));
+    if result.is_err() {
+        clear_software_update_url();
+    }
+    result
+}
+
+async fn grupo_endor_latest_release_url() -> ResultType<String> {
+    let url = format!(
+        "https://github.com/{}/{}/releases/latest",
+        GRUPO_ENDOR_UPDATE_OWNER, GRUPO_ENDOR_UPDATE_REPO
+    );
+    let proxy_conf = Config::get_socks();
+    let tls_url = get_url_for_tls(&url, &proxy_conf);
+    let tls_type = get_cached_tls_type(tls_url).unwrap_or(TlsType::Rustls);
+    let client = create_http_client_async(tls_type, false);
+    let response = client
+        .get(&url)
+        .header("User-Agent", "GrupoEndor-Updater")
+        .send()
+        .await?;
+    if !response.status().is_success() {
+        bail!(
+            "Software update check failed with HTTP status: {}",
+            response.status()
+        );
+    }
+    Ok(response.url().as_str().to_owned())
+}
+
+fn process_latest_release_url(response_url: String) -> ResultType<()> {
+    let release_id = release_id_from_update_url(&response_url)?;
+    let latest_release_version = display_version_from_release_id(&release_id)?;
+    if get_version_number(&latest_release_version) > get_version_number(crate::VERSION) {
+        #[cfg(feature = "flutter")]
+        {
+            let mut m = HashMap::new();
+            m.insert("name", "check_software_update_finish");
+            m.insert("url", &response_url);
+            if let Ok(data) = serde_json::to_string(&m) {
+                let _ = crate::flutter::push_global_event(crate::flutter::APP_TYPE_MAIN, data);
+            }
+        }
+        *SOFTWARE_UPDATE_URL.lock().unwrap() = response_url;
+    } else {
+        clear_software_update_url();
+    }
+    Ok(())
+}
+
+// Fluxo original (api.rustdesk.com), mantido sem uso.
+#[allow(dead_code)]
+#[tokio::main(flavor = "current_thread")]
+async fn do_check_software_update_rustdesk() -> hbb_common::ResultType<()> {
     let (request, url) =
         hbb_common::version_check_request(hbb_common::VER_TYPE_RUSTDESK_CLIENT.to_string());
     let proxy_conf = Config::get_socks();
@@ -2495,6 +2556,12 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
 }
 
 pub fn load_custom_client() {
+    // Grupo Endor: atualização automática ligada por padrão (o usuário ainda pode desligar).
+    config::DEFAULT_SETTINGS
+        .write()
+        .unwrap()
+        .entry(keys::OPTION_ALLOW_AUTO_UPDATE.to_owned())
+        .or_insert_with(|| "Y".to_owned());
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());
