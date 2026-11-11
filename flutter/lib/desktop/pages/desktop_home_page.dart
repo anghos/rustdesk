@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
+import 'package:flutter_hbb/common/widgets/login.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
@@ -181,7 +182,44 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   buildRightPane(BuildContext context) {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
-      child: ConnectionPage(),
+      child: Obx(() => gFFI.userModel.userName.value.isEmpty
+          ? _buildLoginRequiredPane(context)
+          : ConnectionPage()),
+    );
+  }
+
+  // Grupo Endor: sem conta logada, o app apenas recebe conexões.
+  Widget _buildLoginRequiredPane(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline,
+                size: 48, color: Theme.of(context).hintColor),
+            const SizedBox(height: 16),
+            Text(
+              'Acesso a outros computadores restrito',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Este computador está disponível para receber suporte.\n'
+              'Para acessar outro computador, entre com sua conta Grupo Endor.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.login),
+              label: Text(translate('Login')),
+              onPressed: () => loginDialog(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
