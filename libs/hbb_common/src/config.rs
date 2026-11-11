@@ -113,7 +113,7 @@ const CHARS: &[char] = &[
     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
-pub const RENDEZVOUS_SERVERS: &[&str] = &["186.194.174.3"];
+pub const RENDEZVOUS_SERVERS: &[&str] = &["acesso.endordcservices.com.br"];
 pub const RS_PUB_KEY: &str = "BrJtye7n7QOhHEegwPkCGC470r7yV0bCcarQVdNJUX8=";
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
