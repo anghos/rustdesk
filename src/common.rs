@@ -1294,7 +1294,7 @@ fn get_api_server_(api: String, custom: String) -> String {
             return format!("http://{}", s);
         }
     }
-    "https://acesso.endordcservices.com.br".to_owned()
+    "https://acesso.endordcservices.com.br:8443".to_owned()
 }
 
 #[inline]
