@@ -22,9 +22,9 @@ env:
   FLUTTER_VERSION: "3.24.5"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
-  VERSION: "1.5.101"
+  VERSION: "1.5.102"
   # A tag precisa ser a própria versão: o atualizador lê a versão a partir dela.
-  RELEASE_TAG: "1.5.101"
+  RELEASE_TAG: "1.5.102"
   # Chave pública correspondente ao segredo RUSTDESK_UPDATE_ED25519_SEED
   RUSTDESK_UPDATE_ED25519_PUBLIC_KEY: "4vQJU0lhyM9lk/FFvkQlhPrAoiyi1leMFsPY8RE/IsI="
 
